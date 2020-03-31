@@ -1,12 +1,12 @@
 #!/bin/bash
 
+LOG="/var/log/borg/backup.log"
+
 # check if we are the only local instance
 if [[ "`pidof -x $(basename $0) -o %PPID`" ]]; then
-        echo "This script is already running with PID `pidof -x $(basename $0) -o %PPID`" >> "${LOGDIR}"
+        echo "This script is already running with PID `pidof -x $(basename $0) -o %PPID`" >> "${LOG}"
         exit
 fi
-
-LOG="/var/log/borg/backup.log"
 
 ## Backup ratio
 ## Value between 1 and 22 
@@ -16,9 +16,10 @@ LOG="/var/log/borg/backup.log"
 info() { printf "\n%s %s\n\n" "$( date )" "$*" >&2; }
 trap 'echo $( date ) Backup interrupted >&2; exit 2' INT TERM
 
-export BORG_PASSPHRASE="Cannon_Underwire_Tactical_Pending_Bonanza_Constant_Glove_Dreadlock_Resigned_Jiffy"
-export BORG_RSH='ssh -i /opt/borgbackup/.ssh/id_rsa'
-export BORG_REPO="ssh://u225102@u225102.your-storagebox.de:23/./backup/containers"
+export BORG_PASSPHRASE="Cannon_Underwire_Tactical_Pending_Bonanza_Constant_Glove_Dreadlock_Resigned_Jiffy" 	#Std Variable
+export BORG_RSH='ssh -i /opt/borgbackup/.ssh/id_rsa'														#Std Variable
+export BORG_REPO="ssh://u225102@u225102.your-storagebox.de:23/./backup/containers"							#Std Variable
+export BORG_EXCLUDE="/opt/borgbackup/exclude_containers.lst"												#My Variable
 
 
 ##
@@ -29,25 +30,37 @@ exec > >(tee -i $LOG)
 exec 2>&1
 
 # get all running docker container names
-SRCNAMES=$(sudo docker ps | awk '{if(NR>1) print $NF}')
+#SRCNAMES=$(sudo docker ps | awk '{if(NR>1) print $NF}')
+SRCNAMES="filezilla"
 HOST=$(hostname)
 
-echo "###### Backup started: {now} ######"
+echo "###### Backup started: ######"
+echo $( date )
 echo "Backuping up ${HOST} containers" 
 
-
-# loop through all containers
+# loop through all running containers
 for SRCNAME in $SRCNAMES
 do
 	docker stop $SRCNAME
 	echo "Backuping up ${SRCNAME}"
 	sleep 5
-	borg create --compression zstd,10 --stats ssh://u225102@u225102.your-storagebox.de:23/./backup/containers::"$HOST-$SRCNAME-{now}" /opt/appdata/$SRCNAME
+	borg create 									\
+				--compression zstd,15 				\
+				--verbose 							\
+				--filter AME 						\
+				--list 								\
+				--stats 							\
+				--show-rc 							\
+				--exclude-caches 					\
+				--exclude-from $BORG_EXCLUDE 		\
+				$BORG_REPO::"$HOST-$SRCNAME-{now}" 	\
+				/opt/appdata/$SRCNAME
 	docker start $SRCNAME
 done
 
 backup_exit=$?
 
+info "Pruning repository"
 
 # Use the `prune` subcommand to maintain 7 daily, 4 weekly and 6 monthly
 # archives of THIS machine. The '{hostname}-' prefix is very important to
@@ -61,7 +74,7 @@ borg prune                          \
     --keep-daily    7               \
     --keep-weekly   4               \
     --keep-monthly  6               \
-	ssh://u225102@u225102.your-storagebox.de:23/./backup/containers
+	$BORG_REPO
 
 prune_exit=$?
 
