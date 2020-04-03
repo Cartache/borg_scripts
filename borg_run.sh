@@ -23,7 +23,7 @@ if [ ! -f $WGET_CREDENTIALS ]; then
 fi
 
 case "$1" in
-	containers | system | data | list | rsync | keys_export)
+	containers | system | data | list | list_all | mount | umount | rsync | keys_export)
 		SCRIPTNAME="borg_backup.sh"
 		#uses credentials in file $HOME/.wgetrc
 		#-nv not verbose
@@ -31,7 +31,7 @@ case "$1" in
 		wget -Nnv https://u225102.your-storagebox.de/appdata/borgbackup/$SCRIPTNAME && bash $SCRIPTNAME $1; rm -f $SCRIPTNAME
 		;;
 	*)
-		echo $"Usage: $0 {containers|system|data|rsync|key_export}"
+		echo $"Usage: $0 {containers|system|data|list|list_all|mount|umount|rsync|key_export}"
 		exit 1
 		;;
 esac
