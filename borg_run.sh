@@ -12,7 +12,7 @@ fi
 
 # Check for root permissions
 if [[ $EUID -ne 0 ]]; then
-  echo -e "${SCRIPT_NAME} requires root privledges.\n"
+  echo -e "$0 requires root privledges.\n"
   echo -e "sudo $0 $*\n"
   exit 1
 fi
