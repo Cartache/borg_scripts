@@ -6,7 +6,7 @@ WGET_CREDENTIALS="/root/.wgetrc"
 
 # check if we are the only local instance
 if [[ "`pidof -x $(basename $0) -o %PPID`" ]]; then
-        echo "This script is already running with PID `pidof -x $(basename $0) -o %PPID`" >> "${LOG}"
+        echo "$0 script is already running with PID `pidof -x $(basename $0) -o %PPID`" >> "${LOG}"
         exit
 fi
 
