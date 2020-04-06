@@ -28,11 +28,10 @@ case "$1" in
 		#uses credentials in file $HOME/.wgetrc
 		#-nv not verbose
 		#-N only if new download
-		wget -Nnv https://u225102.your-storagebox.de/appdata/borgbackup/$SCRIPTNAME && bash $SCRIPTNAME $1; rm -f $SCRIPTNAME
+		wget -Nnv https://u225102.your-storagebox.de/appdata/borgbackup/$SCRIPTNAME && bash $SCRIPTNAME $1 $2; rm -f $SCRIPTNAME
 		;;
 	*)
 		echo $"Usage: $0 {containers|system|data|list|list_all|mount|umount|rsync|key_export}"
 		exit 1
 		;;
 esac
-
