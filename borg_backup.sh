@@ -12,36 +12,32 @@ RSYNC_DESTINATION="/mnt/gdrive/Backup/Storagebox/"
 RSYNC_LOG="/var/log/rsync/rsync_generic.log"
 ## Backup compression ratio. Value between 1 and 22 ## Highest but lowest speed = 22
 BORG_COMPRESSION=15
-BORG_TMPMOUNT="/tmp/borgmount"
+BORG_TEMPMOUNT="/tmp/borgmount"
 
 export HOME=/root
 export BORG_PASSCOMMAND="cat $HOME/.borg-passphrase" 	
 export BORG_RSH='ssh -i /opt/borgbackup/.ssh/id_rsa'	
 export BORG_EXPORT_PATH="/mnt/gdrive/Backup/borgbackup/borg.key"
-
+export BORG_EXCLUDE="/opt/borgbackup/borg_exclude_${1}.lst"
+echo $BORG_EXCLUDE
 echo "This is the architecture $ARCHITECTURE"
 
-if [[ $ARCHITECTURE =~ "arm" ]]; 
-then
-	export BORG_REPO="ssh://u225102@u225102.your-storagebox.de:23/./backup/desbreit_ARM"
-	BORG_PARAMS="--verbose 							 	\
+BORG_PARAMS="--verbose 							 	\
 		--filter AME 						 	\
 		--list									\
 		--stats 							 	\
 		--show-rc 							 	\
 		--exclude-caches						\
 		--one-file-system						"
-else
+
+#Disable compression in case of Raspberry PI
+#if [[ $ARCHITECTURE =~ "arm" ]]; 
+#then
+#	export BORG_REPO="ssh://u225102@u225102.your-storagebox.de:23/./backup/desbreit_ARM"
+#else
 	export BORG_REPO="ssh://u225102@u225102.your-storagebox.de:23/./backup/desbreit"
-	BORG_PARAMS="--verbose 							 	\
-			--filter AME 						 	\
-			--list									\
-			--stats 							 	\
-			--show-rc 							 	\
-			--exclude-caches						\
-			--one-file-system						\
-			--compression zstd,$BORG_COMPRESSION    "
-fi
+	BORG_PARAMS="$BORG_PARAMS --compression zstd,$BORG_COMPRESSION"
+#fi
 
 # check if we are the only local instance
 if [[ "`pidof -x $(basename $0) -o %PPID`" ]]; then
@@ -81,16 +77,16 @@ trap 'echo $( date ) Backup interrupted >&2; exit 2' INT TERM
 exec > >(tee -i $LOG)
 exec 2>&1
 
-echo "###### Backup started: ######"
+echo "###### Borg started: ######"
 echo $( date )
-echo "Backuping up $1 from ${HOST}" 
+echo "Borging $1 from ${HOST}" 
 
 case "$1" in
 	containers)
 		# get all running docker container names
-		#SRCNAMES=$(sudo docker ps | awk '{if(NR>1) print $NF}')
-		SRCNAMES="filezilla"
-		BORG_EXCLUDE="/opt/borgbackup/borg_exclude_containers.lst"
+		SRCNAMES=$(sudo docker ps | awk '{if(NR>1) print $NF}')
+		#SRCNAMES="filezilla"
+#		export BORG_EXCLUDE="/opt/borgbackup/borg_exclude_containers.lst"
 		# loop through all running containers
 		for SRCNAME in $SRCNAMES
 		do
@@ -105,17 +101,18 @@ case "$1" in
 		done
 		;;
 	system)
-		export BORG_INCLUDE="/opt/borgbackup/borg_include_system.lst"
-		BORG_EXCLUDE="/opt/borgbackup/borg_exclude_system.lst"
+		while read -r line; do BORG_INCLUDE="$BORG_INCLUDE $line"; done < "/opt/borgbackup/borg_include_system.lst"
+		echo "This is $BORG_INCLUDE"
+		export BORG_EXCLUDE="/opt/borgbackup/borg_exclude_system.lst"
 		borg create									\
 					$BORG_PARAMS					\
 					--exclude-from $BORG_EXCLUDE 	\
-					$BORG_REPO::"$HOST-System-{now}" 		\
+					$BORG_REPO::"$HOST-System-{now} " 		\
 					$BORG_INCLUDE
 		;;
 	data)
-		export BORG_INCLUDE="/opt/borgbackup/borg_include_data.lst"
-		BORG_EXCLUDE="/opt/borgbackup/borg_exclude_data.lst"
+		# reads the include file into BORG_INCLUDE variable
+		while read -r line; do BORG_INCLUDE="$BORG_INCLUDE $line"; done < "/opt/borgbackup/borg_include_data.lst"
 		borg create									\
 					$BORG_PARAMS					\
 					--exclude-from $BORG_EXCLUDE 	\
@@ -123,14 +120,9 @@ case "$1" in
 					$BORG_INCLUDE
 		;;
 	mount)
-		export BORG_INCLUDE="/opt/borgbackup/borg_include_data.lst"
-		BORG_EXCLUDE="/opt/borgbackup/borg_exclude_data.lst"
-		borg mount	$BORG_REPO::"$HOST-$2" 		\
-					$BORG_TEMPMOUNT
+		borg mount	$BORG_REPO $BORG_TEMPMOUNT*
 		;;
 	umount)
-		export BORG_INCLUDE="/opt/borgbackup/borg_include_data.lst"
-		BORG_EXCLUDE="/opt/borgbackup/borg_exclude_data.lst"
 		borg umount	$BORG_TEMPMOUNT
 		;;
 	list)
@@ -151,8 +143,11 @@ case "$1" in
 		;;
 esac
 
+
 backup_exit=$?
 
+if [ $1 == 'containers' ] || [ $1 == 'system' ]  || [ $1 == 'data' ]
+then
 info "Pruning repository"
 
 # Use the `prune` subcommand to maintain 7 daily, 4 weekly and 6 monthly
@@ -168,8 +163,9 @@ borg prune                          \
     --keep-weekly   4               \
     --keep-monthly  6               \
 	$BORG_REPO
-
 prune_exit=$?
+fi
+
 
 # use highest exit code as global exit code
 global_exit=$(( backup_exit > prune_exit ? backup_exit : prune_exit ))
