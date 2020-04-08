@@ -3,7 +3,7 @@
 if [[ $2 == "debug" ]]; 
 then
 	BORG_DEBUG="true"
-else
+fi
 
 LOGDIR="/var/log/borgbackup"
 CONFIGDIR="/opt/borgbackup/"
@@ -114,7 +114,7 @@ case "$1" in
 					--exclude-from $BORG_EXCLUDE 		\
 					$BORG_REPO::"$HOST-System-{now} " 	\
 					$BORG_INCLUDE"
-		elif
+		else
 		borg create										\
 					$BORG_PARAMS						\
 					--exclude-from $BORG_EXCLUDE 		\
