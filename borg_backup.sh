@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [[ $2 == "debug" ]]; 
+then
+	BORG_DEBUG="true"
+else
+
 LOGDIR="/var/log/borgbackup"
 CONFIGDIR="/opt/borgbackup/"
 LOG="$LOGDIR/backup.log"
@@ -54,7 +59,7 @@ fi
 
 #create log folder if not present
 if [ ! -d "$LOGDIR" ]; then
-	mkdir -p $LOGDIR
+	sudo mkdir -p $LOGDIR
 fi
 
 #create include and exclude files if missing
@@ -64,8 +69,6 @@ touch "$CONFIGDIR/borg_include_data.lst"
 touch "$CONFIGDIR/borg_exclude_system.lst"
 touch "$CONFIGDIR/borg_exclude_containers.lst"
 touch "$CONFIGDIR/borg_exclude_data.lst"
-
-
 
 # some helpers and error handling:
 info() { printf "\n%s %s\n\n" "$( date )" "$*" >&2; }
@@ -104,11 +107,20 @@ case "$1" in
 		while read -r line; do BORG_INCLUDE="$BORG_INCLUDE $line"; done < "/opt/borgbackup/borg_include_system.lst"
 		echo "This is $BORG_INCLUDE"
 		export BORG_EXCLUDE="/opt/borgbackup/borg_exclude_system.lst"
-		borg create									\
-					$BORG_PARAMS					\
-					--exclude-from $BORG_EXCLUDE 	\
-					$BORG_REPO::"$HOST-System-{now} " 		\
+		if $BORG_DEBUG=="true";
+		then
+		echo "borg create								\
+					$BORG_PARAMS						\
+					--exclude-from $BORG_EXCLUDE 		\
+					$BORG_REPO::"$HOST-System-{now} " 	\
+					$BORG_INCLUDE"
+		elif
+		borg create										\
+					$BORG_PARAMS						\
+					--exclude-from $BORG_EXCLUDE 		\
+					$BORG_REPO::"$HOST-System-{now} " 	\
 					$BORG_INCLUDE
+		fi
 		;;
 	data)
 		# reads the include file into BORG_INCLUDE variable
