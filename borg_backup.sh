@@ -23,7 +23,7 @@ export HOME=/root
 export BORG_PASSCOMMAND="cat $HOME/.borg-passphrase" 	
 export BORG_RSH='ssh -i /opt/borgbackup/.ssh/id_rsa'	
 export BORG_EXPORT_PATH="/mnt/gdrive/Backup/borgbackup/borg.key"
-export BORG_EXCLUDE="/opt/borgbackup/borg_exclude_${1}.lst"
+export BORG_EXCLUDE="/opt/borgbackup/borg_exclude_${1}_$HOST.lst"
 echo $BORG_EXCLUDE
 echo "This is the architecture $ARCHITECTURE"
 
